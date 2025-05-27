@@ -46,7 +46,6 @@ export interface CartItem {
   export interface AddToCartRequest {
     product_id: string
     quantity: number
-    sessionId?: string
   }
   
   export interface UpdateCartItemRequest {

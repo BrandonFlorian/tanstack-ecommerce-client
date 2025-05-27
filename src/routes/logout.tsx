@@ -1,8 +1,9 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getSupabaseServerClient } from '@/utils/supabase'
 
 const logoutFn = createServerFn().handler(async () => {
+  console.log('Logging out')
   const supabase = await getSupabaseServerClient()
   
   // Sign out current user
@@ -16,28 +17,24 @@ const logoutFn = createServerFn().handler(async () => {
 
   // Immediately create anonymous user for seamless experience
   const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously()
-  
+  console.log('Created anonymous user after logout:', anonData.user?.id)
+
   if (anonError) {
     console.error('Failed to create anonymous user after logout:', anonError)
-  } else {
-    console.log('Created anonymous user after logout:', anonData.user?.id)
   }
 
   throw redirect({
     href: '/',
-  })
+    replace: true,
+  }
+)
 })
 
 export const Route = createFileRoute('/logout')({
   preload: false,
   loader: async ({ context }) => {
-    // Clear cart data on client side
-    if (typeof window !== 'undefined') {
-      console.log('Logout: Clearing cart data')
-      context.queryClient.cancelQueries({ queryKey: ['cart'] })
-      context.queryClient.removeQueries({ queryKey: ['cart'] })
-    }
-    
+    // Clear cart data using React Query's built-in mechanisms
+    context.queryClient.removeQueries({ queryKey: ['cart'] })
     return logoutFn()
   }
 })

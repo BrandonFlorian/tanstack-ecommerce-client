@@ -7,6 +7,8 @@ import { ArrowLeft, ShoppingBag } from 'lucide-react'
 import { useCart, useClearCart, useCartReadyState } from '@/hooks/useCart'
 import { CartItemCard } from '@/components/CartItemCard'
 import { CartSummary } from '@/components/CartSummary'
+import { useSessionStore } from '@/stores/sessionStore'
+import { useEffect } from 'react'
 
 export const Route = createFileRoute('/cart')({
   component: CartPage,
@@ -15,7 +17,16 @@ export const Route = createFileRoute('/cart')({
 function CartPage() {
   const { data: cart, isLoading, error } = useCart()
   const clearCart = useClearCart()
-  const { isReady, isLoading: userLoading } = useCartReadyState()
+  const { isReady, isLoading: authLoading } = useCartReadyState()
+  const { ensureUser, session, isInitialized } = useSessionStore()
+
+  // Ensure we have a user when visiting cart page
+  useEffect(() => {
+    if (isInitialized && !session) {
+      console.log('Cart page: No session found, ensuring user exists')
+      ensureUser()
+    }
+  }, [isInitialized, session, ensureUser])
 
   const handleCheckout = () => {
     // TODO: Implement checkout flow
@@ -29,8 +40,8 @@ function CartPage() {
     }
   }
 
-  // Show loading state if cart system is initializing or data is loading
-  if (isLoading || userLoading) {
+  // Show loading while auth is initializing or user is being created
+  if (!isInitialized || authLoading || !isReady) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
@@ -45,11 +56,30 @@ function CartPage() {
               <Skeleton className="h-64 w-full" />
             </div>
           </div>
-          {userLoading && (
-            <div className="text-center mt-4 text-muted-foreground">
-              Setting up your cart...
+          <div className="text-center mt-4 text-muted-foreground">
+            Setting up your cart...
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show loading while cart data is loading
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto">
+          <Skeleton className="h-8 w-48 mb-6" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-32 w-full" />
+              ))}
             </div>
-          )}
+            <div>
+              <Skeleton className="h-64 w-full" />
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -113,9 +143,9 @@ function CartPage() {
             <Button 
               variant="outline" 
               onClick={handleClearCart}
-              disabled={clearCart.isPending || userLoading}
+              disabled={clearCart.isPending}
             >
-              {userLoading ? 'Setting up...' : clearCart.isPending ? 'Clearing...' : 'Clear Cart'}
+              {clearCart.isPending ? 'Clearing...' : 'Clear Cart'}
             </Button>
           )}
         </div>

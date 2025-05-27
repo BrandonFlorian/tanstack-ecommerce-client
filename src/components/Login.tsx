@@ -4,58 +4,29 @@ import { useMutation } from '@/hooks/useMutation'
 import { loginFn } from '@/routes/_authed'
 import { signupFn } from '@/routes/signup'
 import { Auth } from '@/components/Auth'
-import { useAuthStore } from '@/stores/authStore'
-import { useEffect } from 'react'
-import { mergeAnonymousCart } from '@/utils/cartApi'
-import { useQueryClient } from '@tanstack/react-query'
+import { useRefreshSession } from '@/stores/sessionStore'
 
 export function Login() {
   const router = useRouter()
-  const queryClient = useQueryClient()
-  const { anonymousUserId, trackAnonymousUser } = useAuthStore()
-  
-  // Track anonymous user before login
-  useEffect(() => {
-    const session = useAuthStore.getState().session
-    if (session?.user?.id && session.user.is_anonymous) {
-      trackAnonymousUser(session.user.id)
-    }
-  }, [trackAnonymousUser])
+  const refreshSession = useRefreshSession()
+
+  const handleSuccessfulAuth = async () => {
+
+    console.log('✅ Login: Auth successful, redirecting...')
+    
+    // Invalidate router to refresh user context
+    await refreshSession()
+    await router.invalidate()
+    
+    // Navigate to home - merge will happen automatically via global effects
+    router.navigate({ to: '/' })
+  }
 
   const loginMutation = useMutation({
     fn: loginFn,
     onSuccess: async (ctx) => {
       if (!ctx.data?.error) {
-        console.log('Login successful')
-        
-        // Wait for auth state to update
-        await new Promise(resolve => setTimeout(resolve, 500))
-        
-        // Merge cart if we had an anonymous user
-        if (anonymousUserId) {
-          try {
-            console.log('Merging cart from anonymous user:', anonymousUserId)
-            const mergedCart = await mergeAnonymousCart({ 
-              data: { anonymousUserId } 
-            })
-            
-            if (mergedCart) {
-              // Update cart cache with merged data
-              const currentSession = useAuthStore.getState().session
-              if (currentSession?.user?.id) {
-                queryClient.setQueryData(['cart', currentSession.user.id], mergedCart)
-              }
-            }
-            
-            // Clear the tracked anonymous user ID
-            trackAnonymousUser(null)
-          } catch (error) {
-            console.error('Failed to merge cart:', error)
-          }
-        }
-
-        await router.invalidate()
-        router.navigate({ to: '/' })
+        await handleSuccessfulAuth()
       }
     },
   })
@@ -63,15 +34,7 @@ export function Login() {
   const signupMutation = useMutation({
     fn: useServerFn(signupFn),
     onSuccess: async () => {
-      // Similar cart merge logic for signup
-      if (anonymousUserId) {
-        try {
-          await mergeAnonymousCart({ data: { anonymousUserId } })
-          trackAnonymousUser(null)
-        } catch (error) {
-          console.error('Failed to merge cart:', error)
-        }
-      }
+      await handleSuccessfulAuth()
     }
   })
 

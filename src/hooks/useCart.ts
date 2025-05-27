@@ -1,7 +1,5 @@
-// src/hooks/useCart.ts
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from '@tanstack/react-query'
-import { useSession } from '@/hooks/useSession'
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef } from 'react'
 import { 
   fetchCart, 
   addToCart, 
@@ -11,39 +9,99 @@ import {
   mergeAnonymousCart
 } from '@/utils/cartApi'
 import type { CartWithItems, AddToCartRequest, UpdateCartItemRequest } from '@/types/cart'
-import { getSupabaseBrowserClient } from '@/utils/supabase'
-import { useAuthStore } from '@/stores/authStore'
+import { useSessionStore, useIsReady, useUserId } from '@/stores/sessionStore'
 
-// Cart hook with proper state management
+// Main cart hook with enhanced user transition handling
 export function useCart(options?: Partial<UseQueryOptions<CartWithItems, Error>>) {
-  const { session } = useSession()
+  const userId = useUserId()
+  const isReady = useIsReady()
   const queryClient = useQueryClient()
-  const { ensureUser, isReady } = useAuthStore()
+  const prevUserIdRef = useRef<string | null>(null)
 
-  // Ensure user exists before any cart operations
+  // Handle cart merging via custom events
   useEffect(() => {
-    ensureUser()
-  }, [ensureUser])
-
-  // Handle session changes
-  useEffect(() => {
-    if (!session) {
-      // Clear cart data on logout
-      queryClient.removeQueries({ queryKey: ['cart'] })
-    } else {
-      // Invalidate cart when session changes
-      queryClient.invalidateQueries({ queryKey: ['cart'] })
+    const handleCartMerge = async (event: Event) => {
+      const { anonymousUserId, newUserId } = (event as CustomEvent).detail
+      
+      console.log('🔀 Cart Hook: Handling cart merge event:', {
+        from: anonymousUserId,
+        to: newUserId
+      })
+      
+      try {
+        // Clear old cart data immediately
+        queryClient.removeQueries({ queryKey: ['cart', anonymousUserId] })
+        queryClient.removeQueries({ queryKey: ['cart'] })
+        
+        // Trigger merge on backend
+        await mergeAnonymousCart({ data: { anonymousUserId } })
+        
+        // Invalidate new user's cart to fetch merged data
+        queryClient.invalidateQueries({ queryKey: ['cart', newUserId] })
+        
+        // Clear the anonymous user tracking
+        useSessionStore.getState().clearAnonymousUserId()
+        
+        console.log('✅ Cart merge completed successfully')
+      } catch (error) {
+        console.error('❌ Cart merge failed:', error)
+        // Fallback: just invalidate the cart
+        queryClient.invalidateQueries({ queryKey: ['cart', newUserId] })
+      }
     }
-  }, [session?.user?.id, queryClient])
+
+    const handleLogout = () => {
+      console.log('🧹 Cart Hook: Handling logout, clearing all cart cache')
+      queryClient.removeQueries({ queryKey: ['cart'] })
+    }
+
+    // Listen for auth events
+    window.addEventListener('auth:cart-merge-needed', handleCartMerge)
+    window.addEventListener('auth:logged-out', handleLogout)
+
+    return () => {
+      window.removeEventListener('auth:cart-merge-needed', handleCartMerge)
+      window.removeEventListener('auth:logged-out', handleLogout)
+    }
+  }, [queryClient])
+
+  // Handle user changes with immediate cache clearing
+  useEffect(() => {
+    const prevUserId = prevUserIdRef.current
+    
+    if (userId !== prevUserId) {
+      console.log('🔄 Cart Hook: User changed from', prevUserId, 'to', userId)
+      
+      if (prevUserId) {
+        // Immediately remove old user's cart data
+        queryClient.removeQueries({ queryKey: ['cart', prevUserId] })
+        console.log('🗑️ Cart Hook: Removed old cart cache for', prevUserId)
+      }
+      
+      prevUserIdRef.current = userId
+      
+      if (userId && isReady) {
+        console.log('🔍 Cart Hook: Prefetching cart for new user', userId)
+        // Prefetch instead of invalidate for smoother UX
+        queryClient.prefetchQuery({
+          queryKey: ['cart', userId],
+          queryFn: () => fetchCart({ data: undefined }),
+        })
+      }
+    }
+  }, [userId, isReady, queryClient])
 
   return useQuery({
-    queryKey: ['cart', session?.user?.id],
-    queryFn: () => fetchCart({ data: undefined }),
-    enabled: isReady && !!session?.user?.id,
-    staleTime: 1000 * 30,
-    refetchOnWindowFocus: true,
+    queryKey: ['cart', userId],
+    queryFn: () => {
+      console.log('🛒 Cart Hook: Fetching cart for user', userId)
+      return fetchCart({ data: undefined })
+    },
+    enabled: isReady && !!userId,
+    staleTime: 1000 * 30, // 30 seconds
+    refetchOnWindowFocus: false,
+    refetchOnMount: false, // Don't refetch on mount to avoid flash
     retry: (failureCount, error) => {
-      // Don't retry on 404 (cart not found)
       if (error instanceof Error && error.message.includes('Cart not found')) {
         return false
       }
@@ -53,90 +111,141 @@ export function useCart(options?: Partial<UseQueryOptions<CartWithItems, Error>>
   })
 }
 
-// Mutations
+// Add to cart mutation with optimistic updates
 export function useAddToCart() {
   const queryClient = useQueryClient()
-  const { session } = useSession()
-  const { isReady } = useAuthStore()
+  const userId = useUserId()
+  const isReady = useIsReady()
 
   return useMutation({
     mutationFn: (data: Omit<AddToCartRequest, 'sessionId'>) => {
-      if (!isReady || !session?.user?.id) {
+      if (!isReady || !userId) {
         throw new Error('User not ready')
       }
+      console.log('➕ Cart Hook: Adding to cart for user', userId)
       return addToCart({ data })
     },
-    onSuccess: (newCartData) => {
-      queryClient.setQueryData(['cart', session?.user?.id], newCartData)
-      queryClient.invalidateQueries({ queryKey: ['cart'] })
+    onMutate: async (variables) => {
+      // Optimistic update
+      await queryClient.cancelQueries({ queryKey: ['cart', userId] })
+      
+      const previousCart = queryClient.getQueryData(['cart', userId])
+      
+      // Optimistically update the cart
+      queryClient.setQueryData(['cart', userId], (old: CartWithItems | undefined) => {
+        if (!old) return old
+        
+        // Find if item already exists
+        const existingItemIndex = old.items.findIndex(
+          item => item.products.id === variables.product_id
+        )
+        
+        if (existingItemIndex >= 0) {
+          // Update existing item
+          const newItems = [...old.items]
+          newItems[existingItemIndex] = {
+            ...newItems[existingItemIndex],
+            quantity: newItems[existingItemIndex].quantity + variables.quantity
+          }
+          
+          return {
+            ...old,
+            items: newItems,
+            summary: {
+              ...old.summary,
+              totalItems: old.summary.totalItems + variables.quantity,
+              subtotal: old.summary.subtotal + (newItems[existingItemIndex].products.price * variables.quantity)
+            }
+          }
+        }
+        
+        return old // Let the server response handle new items
+      })
+      
+      return { previousCart }
     },
-    onError: (error) => {
-      console.error('Failed to add to cart:', error)
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousCart) {
+        queryClient.setQueryData(['cart', userId], context.previousCart)
+      }
+    },
+    onSuccess: (newCartData) => {
+      if (userId) {
+        console.log('✅ Cart Hook: Add successful, updating cache')
+        queryClient.setQueryData(['cart', userId], newCartData)
+      }
     }
   })
 }
 
+// Update cart item mutation
 export function useUpdateCartItem() {
   const queryClient = useQueryClient()
-  const { session } = useSession()
-  const { isReady } = useAuthStore()
+  const userId = useUserId()
+  const isReady = useIsReady()
 
   return useMutation({
     mutationFn: (data: { itemId: string; updates: UpdateCartItemRequest }) => {
-      if (!isReady || !session?.user?.id) {
+      if (!isReady || !userId) {
         throw new Error('User not ready')
       }
       return updateCartItem({ data })
     },
     onSuccess: (newCartData) => {
-      queryClient.setQueryData(['cart', session?.user?.id], newCartData)
-      queryClient.invalidateQueries({ queryKey: ['cart'] })
+      if (userId) {
+        queryClient.setQueryData(['cart', userId], newCartData)
+      }
     }
   })
 }
 
+// Remove from cart mutation
 export function useRemoveFromCart() {
   const queryClient = useQueryClient()
-  const { session } = useSession()
-  const { isReady } = useAuthStore()
+  const userId = useUserId()
+  const isReady = useIsReady()
 
   return useMutation({
     mutationFn: (itemId: string) => {
-      if (!isReady || !session?.user?.id) {
+      if (!isReady || !userId) {
         throw new Error('User not ready')
       }
       return removeFromCart({ data: { itemId, action: 'remove' } })
     },
     onSuccess: (newCartData) => {
-      queryClient.setQueryData(['cart', session?.user?.id], newCartData)
-      queryClient.invalidateQueries({ queryKey: ['cart'] })
+      if (userId) {
+        queryClient.setQueryData(['cart', userId], newCartData)
+      }
     }
   })
 }
 
+// Clear cart mutation
 export function useClearCart() {
   const queryClient = useQueryClient()
-  const { session } = useSession()
-  const { isReady } = useAuthStore()
+  const userId = useUserId()
+  const isReady = useIsReady()
 
   return useMutation({
     mutationFn: () => {
-      if (!isReady || !session?.user?.id) {
+      if (!isReady || !userId) {
         throw new Error('User not ready')
       }
       return clearCart({ data: { action: 'clear' } })
     },
     onSuccess: (newCartData) => {
-      queryClient.setQueryData(['cart', session?.user?.id], newCartData)
-      queryClient.invalidateQueries({ queryKey: ['cart'] })
+      if (userId) {
+        queryClient.setQueryData(['cart', userId], newCartData)
+      }
     }
   })
 }
 
-// Utility hooks
+// Cart ready state
 export function useCartReadyState() {
-  const { isReady, isLoading } = useAuthStore()
-  const { session } = useSession()
+  const isReady = useIsReady()
+  const { isLoading, session } = useSessionStore()
   
   return { 
     isReady,
@@ -145,14 +254,15 @@ export function useCartReadyState() {
   }
 }
 
+// Cart summary with enhanced memoization
 export function useCartSummary() {
-  const { data: cart } = useCart()
+  const { data: cart, isLoading } = useCart()
   const { isReady } = useCartReadyState()
   
   return {
     itemCount: cart?.summary?.totalItems || 0,
     subtotal: cart?.summary?.subtotal || 0,
     isEmpty: !cart?.items?.length,
-    isReady,
+    isReady: isReady && !isLoading,
   }
 }

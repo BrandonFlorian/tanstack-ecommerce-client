@@ -1,6 +1,6 @@
 import * as React from 'react'
 
-export function useMutation<TVariables, TData, TError = Error>(opts: {
+export function useMutation<TVariables = void, TData = unknown, TError = Error>(opts: {
   fn: (variables: TVariables) => Promise<TData>
   onSuccess?: (ctx: { data: TData }) => void | Promise<void>
 }) {
@@ -13,13 +13,13 @@ export function useMutation<TVariables, TData, TError = Error>(opts: {
   >('idle')
 
   const mutate = React.useCallback(
-    async (variables: TVariables): Promise<TData | undefined> => {
+    async (variables?: TVariables): Promise<TData | undefined> => {
       setStatus('pending')
       setSubmittedAt(Date.now())
       setVariables(variables)
       //
       try {
-        const data = await opts.fn(variables)
+        const data = await opts.fn(variables as TVariables)
         await opts.onSuccess?.({ data })
         setStatus('success')
         setError(undefined)

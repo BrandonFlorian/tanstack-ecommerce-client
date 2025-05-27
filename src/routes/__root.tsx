@@ -12,10 +12,13 @@ import type { QueryClient } from '@tanstack/react-query'
 import { DefaultCatchBoundary } from '@/components/DefaultCatchBoundary'
 import { NotFound } from '@/components/NotFound'
 import { CartIcon } from '@/components/CartIcon'
+import { AuthDebugger } from '@/components/AuthDebugger'
 import appCss from '@/styles/app.css?url'
 import { seo } from '@/utils/seo'
 import { getSupabaseServerClient } from '@/utils/supabase'
 import { createServerFn } from '@tanstack/react-start'
+import { useInitializeSession, useSessionStore } from '@/stores/sessionStore'
+import { LogoutButton } from '@/components/LogoutButton'
 
 export const fetchUser = createServerFn({ method: 'GET' }).handler(async () => {
   const supabase = await getSupabaseServerClient()
@@ -71,23 +74,9 @@ export const Route = createRootRouteWithContext<{
       { rel: 'icon', href: '/favicon.ico' },
     ],
   }),
-  beforeLoad: async ({ context }) => {
+  beforeLoad: async () => {
     const user = await fetchUser()
-
-    // Handle logout cache clearing
-    if (typeof window !== 'undefined') {
-      const handleLogout = () => {
-        console.log('Handling logout, clearing cart cache')
-        context.queryClient.removeQueries({ queryKey: ['cart'] })
-        context.queryClient.invalidateQueries({ queryKey: ['cart'] })
-      }
-      
-      window.addEventListener('user-logout', handleLogout)
-    }
-
-    return {
-      user,
-    }
+    return { user }
   },
   errorComponent: (props) => {
     return (
@@ -103,13 +92,14 @@ export const Route = createRootRouteWithContext<{
 function RootComponent() {
   return (
     <RootDocument>
-      <Outlet />
+        <Outlet /> 
     </RootDocument>
   )
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   const { user } = Route.useRouteContext()
+  useInitializeSession()
 
   return (
      <html>
@@ -170,12 +160,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                 >
                   Profile
                 </Link>
-                <Link 
-                  to="/logout"
-                  className="text-sm hover:text-primary transition-colors"
-                >
-                  Logout
-                </Link>
+                <LogoutButton />
               </>
             ) : (
               <Link 
@@ -189,6 +174,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         </div>
         <hr />
         {children}
+        <AuthDebugger />
         <TanStackRouterDevtools position="bottom-right" />
         <ReactQueryDevtools buttonPosition="bottom-left" />
         <Scripts />

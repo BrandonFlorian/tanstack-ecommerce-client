@@ -4,7 +4,7 @@ import { getSupabaseServerClient } from '@/utils/supabase'
 import { EXPRESS_SERVER_URL_WITH_PORT } from '@/config/constants'
 import type { CartWithItems, AddToCartRequest, UpdateCartItemRequest } from '@/types/cart'
 
-// Simplified API client - no need for session ID headers anymore
+// Enhanced API client with better error handling
 class CartApiClient extends ApiServerClient {
   constructor(baseUrl: string, token?: string) {
     super(baseUrl, token)
@@ -17,11 +17,11 @@ class CartApiClient extends ApiServerClient {
       'Content-Type': 'application/json',
     }
 
-    console.log('Cart API request:', { 
+    console.log('🌐 Cart API request:', { 
       path, 
       method: options.method || 'GET',
       hasToken: !!this.token,
-      headers: Object.keys(headers)
+      body: options.body ? JSON.parse(options.body as string) : undefined
     })
 
     const res = await fetch(`${this.baseUrl}${path}`, {
@@ -31,15 +31,17 @@ class CartApiClient extends ApiServerClient {
     
     if (!res.ok) {
       const errorText = await res.text()
-      console.error('Cart API error:', errorText)
+      console.error('❌ Cart API error:', errorText)
       throw new Error(errorText)
     }
     
-    return res.json()
+    const result = await res.json()
+    console.log('✅ Cart API response:', { path, result })
+    return result
   }
 }
 
-// Get current cart - simplified
+// Get current cart
 export const fetchCart = createServerFn({ method: 'GET' })
   .validator(() => ({}))
   .handler(async () => {
@@ -54,6 +56,7 @@ export const fetchCart = createServerFn({ method: 'GET' })
     
     try {
       const response = await api.get<{ data: CartWithItems, status: string }>('/api/cart')
+      console.log('Cart fetched successfully for user:', session.user.id)
       return response.data
     } catch (error) {
       console.error('Failed to fetch cart:', error)
@@ -61,7 +64,7 @@ export const fetchCart = createServerFn({ method: 'GET' })
     }
   })
 
-// Add item to cart - simplified
+// Add item to cart
 export const addToCart = createServerFn({ method: 'POST' })
   .validator((data: Omit<AddToCartRequest, 'sessionId'>) => data)
   .handler(async ({ data }) => {
@@ -76,6 +79,7 @@ export const addToCart = createServerFn({ method: 'POST' })
     
     try {
       const response = await api.post<{ data: CartWithItems, status: string }>('/api/cart/items', data)
+      console.log('Item added to cart successfully for user:', session.user.id)
       return response.data
     } catch (error) {
       console.error('Failed to add to cart:', error)
@@ -83,7 +87,7 @@ export const addToCart = createServerFn({ method: 'POST' })
     }
   })
 
-// Update cart item quantity - simplified
+// Update cart item quantity
 export const updateCartItem = createServerFn({ method: 'POST' })
   .validator((data: { itemId: string; updates: UpdateCartItemRequest }) => data)
   .handler(async ({ data }) => {
@@ -101,6 +105,7 @@ export const updateCartItem = createServerFn({ method: 'POST' })
         `/api/cart/items/${data.itemId}`, 
         data.updates
       )
+      console.log('Cart item updated successfully for user:', session.user.id)
       return response.data
     } catch (error) {
       console.error('Failed to update cart item:', error)
@@ -108,7 +113,7 @@ export const updateCartItem = createServerFn({ method: 'POST' })
     }
   })
 
-// Remove item from cart - simplified
+// Remove item from cart
 export const removeFromCart = createServerFn({ method: 'POST' })
   .validator((data: { itemId: string; action: 'remove' }) => data)
   .handler(async ({ data }) => {
@@ -125,6 +130,7 @@ export const removeFromCart = createServerFn({ method: 'POST' })
       const response = await api.delete<{ data: CartWithItems, status: string }>(
         `/api/cart/items/${data.itemId}`
       )
+      console.log('Cart item removed successfully for user:', session.user.id)
       return response.data
     } catch (error) {
       console.error('Failed to remove from cart:', error)
@@ -132,7 +138,7 @@ export const removeFromCart = createServerFn({ method: 'POST' })
     }
   })
 
-// Clear entire cart - simplified
+// Clear entire cart
 export const clearCart = createServerFn({ method: 'POST' })
   .validator((data: { action: 'clear' }) => data)
   .handler(async ({ data }) => {
@@ -147,6 +153,7 @@ export const clearCart = createServerFn({ method: 'POST' })
     
     try {
       const response = await api.delete<{ data: CartWithItems, status: string }>('/api/cart')
+      console.log('Cart cleared successfully for user:', session.user.id)
       return response.data
     } catch (error) {
       console.error('Failed to clear cart:', error)
@@ -154,37 +161,39 @@ export const clearCart = createServerFn({ method: 'POST' })
     }
   })
 
-// Manual cart merge for anonymous users - required by Supabase docs
+// Manual cart merge for anonymous users - Enhanced with debugging
 export const mergeAnonymousCart = createServerFn({ method: 'POST' })
   .validator((data: { anonymousUserId: string }) => data)
   .handler(async ({ data }) => {
+    console.log('🔀 MERGE API: Starting merge request with data:', data)
+    
     const supabase = getSupabaseServerClient()
     const { data: { session } } = await supabase.auth.getSession()
     
+    console.log('🔀 MERGE API: Current session:', {
+      userId: session?.user?.id,
+      isAnonymous: session?.user?.is_anonymous,
+      email: session?.user?.email
+    })
+    
     if (!session || session.user.is_anonymous) {
-      throw new Error('Cannot merge to anonymous user')
+      const error = 'Cannot merge to anonymous user'
+      console.error('❌ MERGE API:', error)
+      throw new Error(error)
     }
     
     const api = new CartApiClient(EXPRESS_SERVER_URL_WITH_PORT, session.access_token)
     
     try {
-      // Call your server endpoint to merge the anonymous cart into the real user's cart
+      console.log('🔀 MERGE API: Making request to /api/cart/merge')
       const response = await api.post<{ data: CartWithItems, status: string }>(
         '/api/cart/merge', 
         { fromUserId: data.anonymousUserId }
       )
+      console.log('✅ MERGE API: Merge completed successfully:', response)
       return response.data
     } catch (error) {
-      console.error('Failed to merge anonymous cart:', error)
+      console.error('❌ MERGE API: Failed to merge anonymous cart:', error)
       throw error
     }
-  })
-
-// Legacy merge function - no longer needed with manual approach
-export const mergeSessionCart = createServerFn({ method: 'POST' })
-  .validator((data: { sessionId: string }) => data)
-  .handler(async ({ data }) => {
-    // This is handled manually now
-    console.log('Legacy merge function - use mergeAnonymousCart instead')
-    return null
   })
