@@ -17,7 +17,8 @@ interface SessionState {
     setSubscription: (subscription: Subscription) => void
     ensureUser: () => Promise<void>
     clearAnonymousUserId: () => void
-    refresh: () => Promise<void> // Add this for server-side auth changes
+    setAnonymousUserIdBeforeLogin: (anonymousUserIdBeforeLogin: string) => void
+    refresh: () => Promise<void>
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -64,14 +65,27 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     // Set up the auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+              (event, session) => {
         console.log('🔍 authStateChange:', event, session?.user?.id)
+
+        // Get current state before update for anonymous user tracking
+        const currentState = get()
+        const currentSession = currentState.session
 
         if (event === 'INITIAL_SESSION') {
             set({ session: session, isLoading: false, isInitialized: true, lastUpdateTime: Date.now() })
         } else if (event === 'SIGNED_IN') {
+            // Track anonymous user ID before login for cart merging
+            if (currentSession?.user?.is_anonymous && 
+                session && 
+                !session.user.is_anonymous && 
+                currentSession.user.id !== session.user.id) {
+              get().setAnonymousUserIdBeforeLogin(currentSession.user.id)
+              console.log('🎯 Tracking anonymous user before login:', currentSession.user.id)
+            }
             set({ session: session, isLoading: false, lastUpdateTime: Date.now() })
         } else if (event === 'SIGNED_OUT') {
+            get().clearAnonymousUserId()
             set({ session: null, isLoading: false, lastUpdateTime: Date.now() })
         } else if (event === 'TOKEN_REFRESHED') {
             set({ session: session, lastUpdateTime: Date.now() })
@@ -148,6 +162,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   clearAnonymousUserId: () => {
     set({ anonymousUserIdBeforeLogin: null, lastUpdateTime: Date.now() })
   },
+  setAnonymousUserIdBeforeLogin: (anonymousUserIdBeforeLogin: string) => set({ anonymousUserIdBeforeLogin }),
 
   setSubscription: (subscription) => set({ subscription })
 }))

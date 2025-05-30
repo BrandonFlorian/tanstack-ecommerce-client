@@ -11,59 +11,12 @@ import {
 import type { CartWithItems, AddToCartRequest, UpdateCartItemRequest } from '@/types/cart'
 import { useSessionStore, useIsReady, useUserId } from '@/stores/sessionStore'
 
-// Main cart hook with enhanced user transition handling
+// Main cart hook with proper cache management
 export function useCart(options?: Partial<UseQueryOptions<CartWithItems, Error>>) {
   const userId = useUserId()
   const isReady = useIsReady()
   const queryClient = useQueryClient()
   const prevUserIdRef = useRef<string | null>(null)
-
-  // Handle cart merging via custom events
-  useEffect(() => {
-    const handleCartMerge = async (event: Event) => {
-      const { anonymousUserId, newUserId } = (event as CustomEvent).detail
-      
-      console.log('🔀 Cart Hook: Handling cart merge event:', {
-        from: anonymousUserId,
-        to: newUserId
-      })
-      
-      try {
-        // Clear old cart data immediately
-        queryClient.removeQueries({ queryKey: ['cart', anonymousUserId] })
-        queryClient.removeQueries({ queryKey: ['cart'] })
-        
-        // Trigger merge on backend
-        await mergeAnonymousCart({ data: { anonymousUserId } })
-        
-        // Invalidate new user's cart to fetch merged data
-        queryClient.invalidateQueries({ queryKey: ['cart', newUserId] })
-        
-        // Clear the anonymous user tracking
-        useSessionStore.getState().clearAnonymousUserId()
-        
-        console.log('✅ Cart merge completed successfully')
-      } catch (error) {
-        console.error('❌ Cart merge failed:', error)
-        // Fallback: just invalidate the cart
-        queryClient.invalidateQueries({ queryKey: ['cart', newUserId] })
-      }
-    }
-
-    const handleLogout = () => {
-      console.log('🧹 Cart Hook: Handling logout, clearing all cart cache')
-      queryClient.removeQueries({ queryKey: ['cart'] })
-    }
-
-    // Listen for auth events
-    window.addEventListener('auth:cart-merge-needed', handleCartMerge)
-    window.addEventListener('auth:logged-out', handleLogout)
-
-    return () => {
-      window.removeEventListener('auth:cart-merge-needed', handleCartMerge)
-      window.removeEventListener('auth:logged-out', handleLogout)
-    }
-  }, [queryClient])
 
   // Handle user changes with immediate cache clearing
   useEffect(() => {
@@ -265,4 +218,20 @@ export function useCartSummary() {
     isEmpty: !cart?.items?.length,
     isReady: isReady && !isLoading,
   }
+}
+
+// Hook to handle cart operations after login
+export function useCartAfterLogin() {
+  const queryClient = useQueryClient()
+  const { anonymousUserIdBeforeLogin } = useSessionStore()
+  const userId = useUserId()
+  
+  useEffect(() => {
+    // Clean up anonymous cart data after successful login
+    if (anonymousUserIdBeforeLogin && userId && userId !== anonymousUserIdBeforeLogin) {
+      console.log('🧹 Cleaning up anonymous cart cache after login')
+      queryClient.removeQueries({ queryKey: ['cart', anonymousUserIdBeforeLogin] })
+      useSessionStore.getState().clearAnonymousUserId()
+    }
+  }, [anonymousUserIdBeforeLogin, userId, queryClient])
 }

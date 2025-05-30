@@ -15,21 +15,22 @@ import { CartIcon } from '@/components/CartIcon'
 import { AuthDebugger } from '@/components/AuthDebugger'
 import appCss from '@/styles/app.css?url'
 import { seo } from '@/utils/seo'
-import { getSupabaseServerClient } from '@/utils/supabase'
+import { getValidatedServerSession } from '@/utils/supabase'
 import { createServerFn } from '@tanstack/react-start'
-import { useInitializeSession, useSessionStore } from '@/stores/sessionStore'
+import { useInitializeSession } from '@/stores/sessionStore'
 import { LogoutButton } from '@/components/LogoutButton'
+import { useCartAfterLogin } from '@/hooks/useCart'
 
 export const fetchUser = createServerFn({ method: 'GET' }).handler(async () => {
-  const supabase = await getSupabaseServerClient()
-  const { data, error: _error } = await supabase.auth.getUser()
+  // Use validated session for initial page load
+  const { session, isValid } = await getValidatedServerSession()
 
-  if (!data.user?.email) {
+  if (!isValid || !session?.user?.email) {
     return null
   }
 
   return {
-    email: data.user.email,
+    email: session.user.email,
   }
 })
 
@@ -100,6 +101,7 @@ function RootComponent() {
 function RootDocument({ children }: { children: React.ReactNode }) {
   const { user } = Route.useRouteContext()
   useInitializeSession()
+  useCartAfterLogin()
 
   return (
      <html>

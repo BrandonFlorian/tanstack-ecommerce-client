@@ -1,8 +1,8 @@
 import { createServerFn } from '@tanstack/react-start'
 import { ApiServerClient } from '@/lib/apiServerClient'
-import { getSupabaseServerClient } from '@/utils/supabase'
+import { getServerSessionForApi } from '@/utils/supabase'
 import { EXPRESS_SERVER_URL_WITH_PORT } from '@/config/constants'
-import type { CartWithItems, AddToCartRequest, UpdateCartItemRequest } from '@/types/cart'
+import type { CartWithItems, AddToCartRequest, UpdateCartItemRequest, CartItem } from '@/types/cart'
 
 // Enhanced API client with better error handling
 class CartApiClient extends ApiServerClient {
@@ -45,8 +45,7 @@ class CartApiClient extends ApiServerClient {
 export const fetchCart = createServerFn({ method: 'GET' })
   .validator(() => ({}))
   .handler(async () => {
-    const supabase = getSupabaseServerClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getServerSessionForApi()
     
     if (!session) {
       throw new Error('No user session found')
@@ -68,8 +67,7 @@ export const fetchCart = createServerFn({ method: 'GET' })
 export const addToCart = createServerFn({ method: 'POST' })
   .validator((data: Omit<AddToCartRequest, 'sessionId'>) => data)
   .handler(async ({ data }) => {
-    const supabase = getSupabaseServerClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getServerSessionForApi()
     
     if (!session) {
       throw new Error('No user session found')
@@ -91,8 +89,7 @@ export const addToCart = createServerFn({ method: 'POST' })
 export const updateCartItem = createServerFn({ method: 'POST' })
   .validator((data: { itemId: string; updates: UpdateCartItemRequest }) => data)
   .handler(async ({ data }) => {
-    const supabase = getSupabaseServerClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getServerSessionForApi()
     
     if (!session) {
       throw new Error('No user session found')
@@ -117,8 +114,7 @@ export const updateCartItem = createServerFn({ method: 'POST' })
 export const removeFromCart = createServerFn({ method: 'POST' })
   .validator((data: { itemId: string; action: 'remove' }) => data)
   .handler(async ({ data }) => {
-    const supabase = getSupabaseServerClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getServerSessionForApi()
     
     if (!session) {
       throw new Error('No user session found')
@@ -142,8 +138,7 @@ export const removeFromCart = createServerFn({ method: 'POST' })
 export const clearCart = createServerFn({ method: 'POST' })
   .validator((data: { action: 'clear' }) => data)
   .handler(async ({ data }) => {
-    const supabase = getSupabaseServerClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getServerSessionForApi()
     
     if (!session) {
       throw new Error('No user session found')
@@ -161,14 +156,15 @@ export const clearCart = createServerFn({ method: 'POST' })
     }
   })
 
-// Manual cart merge for anonymous users - Enhanced with debugging
+// Manual cart merge for anonymous users
 export const mergeAnonymousCart = createServerFn({ method: 'POST' })
-  .validator((data: { anonymousUserId: string }) => data)
+  .validator((data: { cartItems: CartItem[] }) => data)
   .handler(async ({ data }) => {
-    console.log('🔀 MERGE API: Starting merge request with data:', data)
+    console.log('🔀 MERGE API: Starting merge request with cart items:', {
+      itemCount: data.cartItems.length
+    })
     
-    const supabase = getSupabaseServerClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getServerSessionForApi()
     
     console.log('🔀 MERGE API: Current session:', {
       userId: session?.user?.id,
@@ -185,10 +181,19 @@ export const mergeAnonymousCart = createServerFn({ method: 'POST' })
     const api = new CartApiClient(EXPRESS_SERVER_URL_WITH_PORT, session.access_token)
     
     try {
-      console.log('🔀 MERGE API: Making request to /api/cart/merge')
-      const response = await api.post<{ data: CartWithItems, status: string }>(
+      console.log('🔀 MERGE API: Sending cart items to /api/cart/merge')
+      const response = await api.post<{ 
+        data: CartWithItems, 
+        status: string,
+        merge?: { merged: number; added: number; total: number }
+      }>(
         '/api/cart/merge', 
-        { fromUserId: data.anonymousUserId }
+        { 
+          cartItems: data.cartItems.map(item => ({
+            product_id: item.products.id,
+            quantity: item.quantity
+          }))
+        }
       )
       console.log('✅ MERGE API: Merge completed successfully:', response)
       return response.data
