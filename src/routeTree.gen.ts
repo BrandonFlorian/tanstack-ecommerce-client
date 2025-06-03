@@ -13,14 +13,18 @@
 import { Route as rootRoute } from './routes/__root'
 import { Route as SignupImport } from './routes/signup'
 import { Route as RedirectImport } from './routes/redirect'
+import { Route as OrdersImport } from './routes/orders'
+import { Route as OrderConfirmationImport } from './routes/order-confirmation'
 import { Route as LogoutImport } from './routes/logout'
 import { Route as LoginImport } from './routes/login'
 import { Route as DeferredImport } from './routes/deferred'
+import { Route as CheckoutImport } from './routes/checkout'
 import { Route as CartImport } from './routes/cart'
 import { Route as AuthedImport } from './routes/_authed'
 import { Route as IndexImport } from './routes/index'
 import { Route as ProductsIndexImport } from './routes/products.index'
 import { Route as ProductsProductIdImport } from './routes/products.$productId'
+import { Route as OrdersOrderIdImport } from './routes/orders.$orderId'
 import { Route as CategoriesCategoryIdImport } from './routes/categories.$categoryId'
 import { Route as AuthedProfileImport } from './routes/_authed/profile'
 
@@ -35,6 +39,18 @@ const SignupRoute = SignupImport.update({
 const RedirectRoute = RedirectImport.update({
   id: '/redirect',
   path: '/redirect',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const OrdersRoute = OrdersImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const OrderConfirmationRoute = OrderConfirmationImport.update({
+  id: '/order-confirmation',
+  path: '/order-confirmation',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -53,6 +69,12 @@ const LoginRoute = LoginImport.update({
 const DeferredRoute = DeferredImport.update({
   id: '/deferred',
   path: '/deferred',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const CheckoutRoute = CheckoutImport.update({
+  id: '/checkout',
+  path: '/checkout',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -83,6 +105,12 @@ const ProductsProductIdRoute = ProductsProductIdImport.update({
   id: '/products/$productId',
   path: '/products/$productId',
   getParentRoute: () => rootRoute,
+} as any)
+
+const OrdersOrderIdRoute = OrdersOrderIdImport.update({
+  id: '/$orderId',
+  path: '/$orderId',
+  getParentRoute: () => OrdersRoute,
 } as any)
 
 const CategoriesCategoryIdRoute = CategoriesCategoryIdImport.update({
@@ -122,6 +150,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CartImport
       parentRoute: typeof rootRoute
     }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutImport
+      parentRoute: typeof rootRoute
+    }
     '/deferred': {
       id: '/deferred'
       path: '/deferred'
@@ -141,6 +176,20 @@ declare module '@tanstack/react-router' {
       path: '/logout'
       fullPath: '/logout'
       preLoaderRoute: typeof LogoutImport
+      parentRoute: typeof rootRoute
+    }
+    '/order-confirmation': {
+      id: '/order-confirmation'
+      path: '/order-confirmation'
+      fullPath: '/order-confirmation'
+      preLoaderRoute: typeof OrderConfirmationImport
+      parentRoute: typeof rootRoute
+    }
+    '/orders': {
+      id: '/orders'
+      path: '/orders'
+      fullPath: '/orders'
+      preLoaderRoute: typeof OrdersImport
       parentRoute: typeof rootRoute
     }
     '/redirect': {
@@ -170,6 +219,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/categories/$categoryId'
       preLoaderRoute: typeof CategoriesCategoryIdImport
       parentRoute: typeof rootRoute
+    }
+    '/orders/$orderId': {
+      id: '/orders/$orderId'
+      path: '/$orderId'
+      fullPath: '/orders/$orderId'
+      preLoaderRoute: typeof OrdersOrderIdImport
+      parentRoute: typeof OrdersImport
     }
     '/products/$productId': {
       id: '/products/$productId'
@@ -201,17 +257,32 @@ const AuthedRouteChildren: AuthedRouteChildren = {
 const AuthedRouteWithChildren =
   AuthedRoute._addFileChildren(AuthedRouteChildren)
 
+interface OrdersRouteChildren {
+  OrdersOrderIdRoute: typeof OrdersOrderIdRoute
+}
+
+const OrdersRouteChildren: OrdersRouteChildren = {
+  OrdersOrderIdRoute: OrdersOrderIdRoute,
+}
+
+const OrdersRouteWithChildren =
+  OrdersRoute._addFileChildren(OrdersRouteChildren)
+
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '': typeof AuthedRouteWithChildren
   '/cart': typeof CartRoute
+  '/checkout': typeof CheckoutRoute
   '/deferred': typeof DeferredRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
+  '/order-confirmation': typeof OrderConfirmationRoute
+  '/orders': typeof OrdersRouteWithChildren
   '/redirect': typeof RedirectRoute
   '/signup': typeof SignupRoute
   '/profile': typeof AuthedProfileRoute
   '/categories/$categoryId': typeof CategoriesCategoryIdRoute
+  '/orders/$orderId': typeof OrdersOrderIdRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/products': typeof ProductsIndexRoute
 }
@@ -220,13 +291,17 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '': typeof AuthedRouteWithChildren
   '/cart': typeof CartRoute
+  '/checkout': typeof CheckoutRoute
   '/deferred': typeof DeferredRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
+  '/order-confirmation': typeof OrderConfirmationRoute
+  '/orders': typeof OrdersRouteWithChildren
   '/redirect': typeof RedirectRoute
   '/signup': typeof SignupRoute
   '/profile': typeof AuthedProfileRoute
   '/categories/$categoryId': typeof CategoriesCategoryIdRoute
+  '/orders/$orderId': typeof OrdersOrderIdRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/products': typeof ProductsIndexRoute
 }
@@ -236,13 +311,17 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
   '/cart': typeof CartRoute
+  '/checkout': typeof CheckoutRoute
   '/deferred': typeof DeferredRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
+  '/order-confirmation': typeof OrderConfirmationRoute
+  '/orders': typeof OrdersRouteWithChildren
   '/redirect': typeof RedirectRoute
   '/signup': typeof SignupRoute
   '/_authed/profile': typeof AuthedProfileRoute
   '/categories/$categoryId': typeof CategoriesCategoryIdRoute
+  '/orders/$orderId': typeof OrdersOrderIdRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/products/': typeof ProductsIndexRoute
 }
@@ -253,13 +332,17 @@ export interface FileRouteTypes {
     | '/'
     | ''
     | '/cart'
+    | '/checkout'
     | '/deferred'
     | '/login'
     | '/logout'
+    | '/order-confirmation'
+    | '/orders'
     | '/redirect'
     | '/signup'
     | '/profile'
     | '/categories/$categoryId'
+    | '/orders/$orderId'
     | '/products/$productId'
     | '/products'
   fileRoutesByTo: FileRoutesByTo
@@ -267,13 +350,17 @@ export interface FileRouteTypes {
     | '/'
     | ''
     | '/cart'
+    | '/checkout'
     | '/deferred'
     | '/login'
     | '/logout'
+    | '/order-confirmation'
+    | '/orders'
     | '/redirect'
     | '/signup'
     | '/profile'
     | '/categories/$categoryId'
+    | '/orders/$orderId'
     | '/products/$productId'
     | '/products'
   id:
@@ -281,13 +368,17 @@ export interface FileRouteTypes {
     | '/'
     | '/_authed'
     | '/cart'
+    | '/checkout'
     | '/deferred'
     | '/login'
     | '/logout'
+    | '/order-confirmation'
+    | '/orders'
     | '/redirect'
     | '/signup'
     | '/_authed/profile'
     | '/categories/$categoryId'
+    | '/orders/$orderId'
     | '/products/$productId'
     | '/products/'
   fileRoutesById: FileRoutesById
@@ -297,9 +388,12 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthedRoute: typeof AuthedRouteWithChildren
   CartRoute: typeof CartRoute
+  CheckoutRoute: typeof CheckoutRoute
   DeferredRoute: typeof DeferredRoute
   LoginRoute: typeof LoginRoute
   LogoutRoute: typeof LogoutRoute
+  OrderConfirmationRoute: typeof OrderConfirmationRoute
+  OrdersRoute: typeof OrdersRouteWithChildren
   RedirectRoute: typeof RedirectRoute
   SignupRoute: typeof SignupRoute
   CategoriesCategoryIdRoute: typeof CategoriesCategoryIdRoute
@@ -311,9 +405,12 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthedRoute: AuthedRouteWithChildren,
   CartRoute: CartRoute,
+  CheckoutRoute: CheckoutRoute,
   DeferredRoute: DeferredRoute,
   LoginRoute: LoginRoute,
   LogoutRoute: LogoutRoute,
+  OrderConfirmationRoute: OrderConfirmationRoute,
+  OrdersRoute: OrdersRouteWithChildren,
   RedirectRoute: RedirectRoute,
   SignupRoute: SignupRoute,
   CategoriesCategoryIdRoute: CategoriesCategoryIdRoute,
@@ -334,9 +431,12 @@ export const routeTree = rootRoute
         "/",
         "/_authed",
         "/cart",
+        "/checkout",
         "/deferred",
         "/login",
         "/logout",
+        "/order-confirmation",
+        "/orders",
         "/redirect",
         "/signup",
         "/categories/$categoryId",
@@ -356,6 +456,9 @@ export const routeTree = rootRoute
     "/cart": {
       "filePath": "cart.tsx"
     },
+    "/checkout": {
+      "filePath": "checkout.tsx"
+    },
     "/deferred": {
       "filePath": "deferred.tsx"
     },
@@ -364,6 +467,15 @@ export const routeTree = rootRoute
     },
     "/logout": {
       "filePath": "logout.tsx"
+    },
+    "/order-confirmation": {
+      "filePath": "order-confirmation.tsx"
+    },
+    "/orders": {
+      "filePath": "orders.tsx",
+      "children": [
+        "/orders/$orderId"
+      ]
     },
     "/redirect": {
       "filePath": "redirect.tsx"
@@ -377,6 +489,10 @@ export const routeTree = rootRoute
     },
     "/categories/$categoryId": {
       "filePath": "categories.$categoryId.tsx"
+    },
+    "/orders/$orderId": {
+      "filePath": "orders.$orderId.tsx",
+      "parent": "/orders"
     },
     "/products/$productId": {
       "filePath": "products.$productId.tsx"

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useCartSummary } from '@/hooks/useCart'
+import { useNavigate } from '@tanstack/react-router'
 
 interface CartSummaryProps {
   onCheckout?: () => void
@@ -11,7 +12,7 @@ interface CartSummaryProps {
 
 export function CartSummary({ onCheckout, className }: CartSummaryProps) {
   const { subtotal, itemCount, isEmpty } = useCartSummary()
-
+  const navigate = useNavigate()
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -19,6 +20,14 @@ export function CartSummary({ onCheckout, className }: CartSummaryProps) {
     }).format(price)
   }
 
+  const handleCheckout = () => {
+    if (onCheckout) {
+      onCheckout()
+    } else {
+      // Default behavior: navigate to checkout
+      navigate({ to: '/checkout' })
+    }
+  }
   const estimatedTax = subtotal * 0.08 // 8% tax estimate
   const estimatedShipping = subtotal > 50 ? 0 : 9.99 // Free shipping over $50
   const estimatedTotal = subtotal + estimatedTax + estimatedShipping
@@ -59,7 +68,7 @@ export function CartSummary({ onCheckout, className }: CartSummaryProps) {
           className="w-full" 
           size="lg"
           disabled={isEmpty}
-          onClick={onCheckout}
+          onClick={handleCheckout}
         >
           {isEmpty ? 'Cart is Empty' : 'Proceed to Checkout'}
         </Button>

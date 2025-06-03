@@ -1,5 +1,5 @@
 import React from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -19,7 +19,7 @@ function CartPage() {
   const clearCart = useClearCart()
   const { isReady, isLoading: authLoading } = useCartReadyState()
   const { ensureUser, session, isInitialized } = useSessionStore()
-
+  const navigate = useNavigate()
   // Ensure we have a user when visiting cart page
   useEffect(() => {
     if (isInitialized && !session) {
@@ -29,8 +29,7 @@ function CartPage() {
   }, [isInitialized, session, ensureUser])
 
   const handleCheckout = () => {
-    // TODO: Implement checkout flow
-    console.log('Proceeding to checkout...')
+    navigate({ to: '/checkout' })
   }
 
   const handleClearCart = () => {
