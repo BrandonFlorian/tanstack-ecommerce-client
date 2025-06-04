@@ -1,72 +1,118 @@
-# Welcome to TanStack.com!
+# TanStack E-commerce Client
 
-This site is built with TanStack Router!
+A modern, fully-featured e-commerce web application built with React, TanStack Router, and Supabase.
 
-- [TanStack Router Docs](https://tanstack.com/router)
+> 🚧 **WORK IN PROGRESS** - This project is currently under active development.
 
-It's deployed automagically with Netlify!
+## Features
 
-- [Netlify](https://netlify.com/)
+- 🛒 Complete shopping cart functionality
+- 💳 Stripe payment integration
+- 👤 User authentication with Supabase
+- 📦 Order tracking and management
+- 📱 Responsive design using Tailwind CSS
+- 🔍 Product search and filtering
+- 🛍️ Category navigation
+- 🔐 Address management
 
-## Development
+## Tech Stack
 
-From your terminal:
+- **Frontend Framework**: TanStack Start
+- **Routing**: TanStack Router
+- **State Management**: Zustand
+- **Data Fetching**: TanStack Query (React Query)
+- **Form Management**: React Hook Form with Zod validation
+- **Styling**: Tailwind CSS with shadcn/ui components
+- **Authentication**: Supabase Auth
+- **Database**: PostgreSQL (via Supabase)
+- **Payment Processing**: Stripe
+- **Build Tool**: Vite via Vinxi
 
-```sh
-pnpm install
-pnpm dev
+## Prerequisites
+
+- Node.js 18+ (recommended 20+)
+- pnpm
+- Supabase account
+- Stripe account
+
+## Environment Setup
+
+Create a `.env` file in the root directory with the following variables:
+
+```
+# Supabase
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Stripe
+VITE_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
+
+# API (if using a separate Express backend)
+VITE_EXPRESS_API_URL=http://localhost
+VITE_EXPRESS_API_PORT=3001
 ```
 
-This starts your app in development mode, rebuilding assets on file changes.
+## Getting Started
 
-## Editing and previewing the docs of TanStack projects locally
+1. Clone the repository
 
-The documentations for all TanStack projects except for `React Charts` are hosted on [https://tanstack.com](https://tanstack.com), powered by this TanStack Router app.
-In production, the markdown doc pages are fetched from the GitHub repos of the projects, but in development they are read from the local file system.
+   ```bash
+   git clone https://github.com/yourusername/tanstack-ecommerce-client.git
+   cd tanstack-ecommerce-client
+   ```
 
-Follow these steps if you want to edit the doc pages of a project (in these steps we'll assume it's [`TanStack/form`](https://github.com/tanstack/form)) and preview them locally :
+2. Install dependencies
 
-1. Create a new directory called `tanstack`.
+   ```bash
+   pnpm install
+   ```
 
-```sh
-mkdir tanstack
-```
+3. Start the development server
 
-2. Enter the directory and clone this repo and the repo of the project there.
+   ```bash
+   pnpm dev
+   ```
 
-```sh
-cd tanstack
-git clone git@github.com:TanStack/tanstack.com.git
-git clone git@github.com:TanStack/form.git
-```
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-> [!NOTE]
-> Your `tanstack` directory should look like this:
->
-> ```
-> tanstack/
->    |
->    +-- form/
->    |
->    +-- tanstack.com/
-> ```
+## Database Setup
 
-> [!WARNING]
-> Make sure the name of the directory in your local file system matches the name of the project's repo. For example, `tanstack/form` must be cloned into `form` (this is the default) instead of `some-other-name`, because that way, the doc pages won't be found.
+The project uses Supabase as its database provider. The schema is defined in `schema.sql` file.
 
-3. Enter the `tanstack/tanstack.com` directory, install the dependencies and run the app in dev mode:
+1. Create a new Supabase project
+2. Execute the SQL in `schema.sql` in the Supabase SQL editor
+3. Configure Row Level Security (RLS) policies as specified in the schema file
+4. Update your `.env` file with the Supabase URL and anon key
 
-```sh
-cd tanstack.com
-pnpm i
-# The app will run on https://localhost:3000 by default
-pnpm dev
-```
+## Stripe Integration
 
-4. Now you can visit http://localhost:3000/form/latest/docs/overview in the browser and see the changes you make in `tanstack/form/docs`.
+This project uses Stripe for payment processing:
 
-> [!NOTE]
-> The updated pages need to be manually reloaded in the browser.
+1. Create a Stripe account
+2. Get your publishable key from the Stripe dashboard
+3. Add the key to your `.env` file as `VITE_STRIPE_PUBLISHABLE_KEY`
 
-> [!WARNING]
-> You will need to update the `docs/config.json` file (in the project's repo) if you add a new doc page!
+## Project Structure
+
+- `/src/components` - React components
+- `/src/routes` - TanStack Router route components
+- `/src/hooks` - Custom React hooks
+- `/src/utils` - Utility functions
+- `/src/types` - TypeScript type definitions
+- `/src/stores` - Zustand state stores
+- `/src/lib` - Shared libraries and API clients
+
+## Available Scripts
+
+- `pnpm dev` - Start the development server
+- `pnpm build` - Build the application for production
+- `pnpm start` - Serve the production build
+
+## Deployment
+
+1. Build the application: `pnpm build`
+2. Deploy the `/dist` directory to your hosting provider
+
+## License
+
+MIT
