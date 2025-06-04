@@ -1,11 +1,12 @@
-import React from 'react'
-import { useForm } from '@tanstack/react-form'
+import React, { useEffect, useState } from 'react'
+import { useDebounce } from '@/hooks/useDebounce' // You'll need to create this hook
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Slider } from '@/components/ui/slider' // You'll need to install this from shadcn
 import type { ProductFilters } from '@/types/product'
 
 interface ProductFiltersProps {
@@ -15,145 +16,133 @@ interface ProductFiltersProps {
 }
 
 export function ProductFilters({ filters, onFiltersChange, className }: ProductFiltersProps) {
-  const form = useForm({
-    defaultValues: {
-      query: filters.query || '',
-      min_price: filters.min_price?.toString() || '',
-      max_price: filters.max_price?.toString() || '',
-      in_stock: filters.in_stock ?? true,
-      sort_by: filters.sort_by || 'created_at',
-      sort_order: filters.sort_order || 'desc'
-    },
-    onSubmit: ({ value }) => {
-      const newFilters: ProductFilters = {
-        ...filters,
-        query: value.query || undefined,
-        min_price: value.min_price ? parseFloat(value.min_price) : undefined,
-        max_price: value.max_price ? parseFloat(value.max_price) : undefined,
-        in_stock: value.in_stock,
-        sort_by: value.sort_by as ProductFilters['sort_by'],
-        sort_order: value.sort_order as ProductFilters['sort_order'],
-        page: 1 // Reset to first page when filters change
-      }
+  const [localFilters, setLocalFilters] = useState(filters)
+  const [searchQuery, setSearchQuery] = useState(filters.query || '')
+  const debouncedSearch = useDebounce(searchQuery, 500)
+
+  // Update filters when debounced search changes
+  useEffect(() => {
+    if (debouncedSearch !== filters.query) {
+      onFiltersChange({
+        ...localFilters,
+        query: debouncedSearch || undefined,
+        page: 1
+      })
+    }
+  }, [debouncedSearch])
+
+  // Update local filters when props change
+  useEffect(() => {
+    setLocalFilters(filters)
+    setSearchQuery(filters.query || '')
+  }, [filters])
+
+  const handleFilterChange = (key: keyof ProductFilters, value: any) => {
+    const newFilters = {
+      ...localFilters,
+      [key]: value,
+      page: 1 // Reset to first page on filter change
+    }
+    setLocalFilters(newFilters)
+    
+    // For non-search fields, update immediately
+    if (key !== 'query') {
       onFiltersChange(newFilters)
     }
-  })
+  }
+
+  const handleReset = () => {
+    const resetFilters: ProductFilters = {
+      page: 1,
+      limit: 12,
+      sort_by: 'created_at',
+      sort_order: 'desc',
+      in_stock: true
+    }
+    setLocalFilters(resetFilters)
+    setSearchQuery('')
+    onFiltersChange(resetFilters)
+  }
 
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle>Filters</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={form.handleSubmit} className="space-y-4">
-          <form.Field name="query">
-            {(field) => (
-              <div>
-                <Label htmlFor="search">Search</Label>
-                <Input
-                  id="search"
-                  placeholder="Search products..."
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-              </div>
-            )}
-          </form.Field>
-
-          <div className="grid grid-cols-2 gap-4">
-            <form.Field name="min_price">
-              {(field) => (
-                <div>
-                  <Label htmlFor="min_price">Min Price</Label>
-                  <Input
-                    id="min_price"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </div>
-              )}
-            </form.Field>
-
-            <form.Field name="max_price">
-              {(field) => (
-                <div>
-                  <Label htmlFor="max_price">Max Price</Label>
-                  <Input
-                    id="max_price"
-                    type="number"
-                    step="0.01"
-                    placeholder="999.99"
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </div>
-              )}
-            </form.Field>
-          </div>
-
-          <form.Field name="in_stock">
-            {(field) => (
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="in_stock"
-                  checked={field.state.value}
-                  onCheckedChange={(checked) => field.handleChange(checked === true)}
-                />
-                <Label htmlFor="in_stock">In stock only</Label>
-              </div>
-            )}
-          </form.Field>
-
-          <div className="grid grid-cols-2 gap-4">
-            <form.Field name="sort_by">
-              {(field) => (
-                <div>
-                  <Label>Sort by</Label>
-                  <Select
-                    value={field.state.value}
-                    onValueChange={(value) => field.handleChange(value as typeof field.state.value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="created_at">Date Added</SelectItem>
-                      <SelectItem value="name">Name</SelectItem>
-                      <SelectItem value="price">Price</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </form.Field>
-
-            <form.Field name="sort_order">
-              {(field) => (
-                <div>
-                  <Label>Order</Label>
-                  <Select
-                    value={field.state.value}
-                    onValueChange={(value) => field.handleChange(value as typeof field.state.value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="asc">Ascending</SelectItem>
-                      <SelectItem value="desc">Descending</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </form.Field>
-          </div>
-
-          <Button type="submit" className="w-full">
-            Apply Filters
+        <div className="flex items-center justify-between">
+          <CardTitle>Filters</CardTitle>
+          <Button variant="ghost" size="sm" onClick={handleReset}>
+            Reset
           </Button>
-        </form>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Search */}
+        <div>
+          <Label htmlFor="search">Search</Label>
+          <Input
+            id="search"
+            placeholder="Search products..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
+        {/* Price Range */}
+        <div className="space-y-2">
+          <Label>Price Range</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              type="number"
+              step="0.01"
+              placeholder="Min"
+              value={localFilters.min_price || ''}
+              onChange={(e) => handleFilterChange('min_price', e.target.value ? parseFloat(e.target.value) : undefined)}
+            />
+            <Input
+              type="number"
+              step="0.01"
+              placeholder="Max"
+              value={localFilters.max_price || ''}
+              onChange={(e) => handleFilterChange('max_price', e.target.value ? parseFloat(e.target.value) : undefined)}
+            />
+          </div>
+        </div>
+
+        {/* In Stock */}
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="in_stock"
+            checked={localFilters.in_stock ?? true}
+            onCheckedChange={(checked) => handleFilterChange('in_stock', checked)}
+          />
+          <Label htmlFor="in_stock" className="cursor-pointer">
+            In stock only
+          </Label>
+        </div>
+
+        {/* Sort */}
+        <div className="space-y-2">
+          <Label>Sort by</Label>
+          <Select
+            value={`${localFilters.sort_by}-${localFilters.sort_order}`}
+            onValueChange={(value) => {
+              const [sortBy, sortOrder] = value.split('-')
+              handleFilterChange('sort_by', sortBy)
+              handleFilterChange('sort_order', sortOrder)
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="created_at-desc">Newest First</SelectItem>
+              <SelectItem value="created_at-asc">Oldest First</SelectItem>
+              <SelectItem value="name-asc">Name (A-Z)</SelectItem>
+              <SelectItem value="name-desc">Name (Z-A)</SelectItem>
+              <SelectItem value="price-asc">Price (Low to High)</SelectItem>
+              <SelectItem value="price-desc">Price (High to Low)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </CardContent>
     </Card>
   )

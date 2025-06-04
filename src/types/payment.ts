@@ -1,3 +1,5 @@
+import { Address } from "./user"
+
 export interface PaymentIntent {
   clientSecret: string
   paymentIntentId: string
@@ -17,3 +19,6 @@ export interface ShippingRate {
   estimated_days: number
   zone?: string
 }
+
+export type CreateAddressData = Omit<Address, 'id' | 'created_at' | 'updated_at' | 'user_id'>
+export type UpdateAddressData = Partial<CreateAddressData> & { id: string }

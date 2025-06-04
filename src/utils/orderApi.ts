@@ -46,3 +46,35 @@ export const trackShipment = createServerFn({ method: 'GET' })
     )
     return response.data
   })
+
+
+  export const fetchOrderByPaymentIntent = createServerFn({ method: 'GET' })
+  .validator((paymentIntentId: string) => paymentIntentId)
+  .handler(async ({ data: paymentIntentId }) => {
+    const session = await getServerSessionForApi()
+    if (!session) throw new Error('Not authenticated')
+    
+    const api = new ApiServerClient(EXPRESS_SERVER_URL_WITH_PORT, session.access_token)
+    
+    // First, check payment status
+    const paymentResponse = await api.get<{ 
+      data: { 
+        status: string
+        paymentIntentId: string 
+      } 
+    }>(`/api/payment/payment-status/${paymentIntentId}`)
+    
+    if (paymentResponse.data.status !== 'succeeded') {
+      throw new Error('Payment not completed')
+    }
+    
+    // Then fetch the order
+    const orderResponse = await api.get<{ 
+      data: {
+        order: any
+        items: any[]
+      } 
+    }>(`/api/orders/by-payment-intent/${paymentIntentId}`)
+    
+    return orderResponse.data
+  })

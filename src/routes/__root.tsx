@@ -11,15 +11,15 @@ import * as React from 'react'
 import type { QueryClient } from '@tanstack/react-query'
 import { DefaultCatchBoundary } from '@/components/DefaultCatchBoundary'
 import { NotFound } from '@/components/NotFound'
-import { CartIcon } from '@/components/CartIcon'
 import { AuthDebugger } from '@/components/AuthDebugger'
 import appCss from '@/styles/app.css?url'
 import { seo } from '@/utils/seo'
 import { getValidatedServerSession } from '@/utils/supabase'
 import { createServerFn } from '@tanstack/react-start'
 import { useInitializeSession } from '@/stores/sessionStore'
-import { LogoutButton } from '@/components/LogoutButton'
 import { useCartAfterLogin } from '@/hooks/useCart'
+import { Navbar } from '@/components/Navbar'
+import { Toaster } from '@/components/ui/sonner'
 
 export const fetchUser = createServerFn({ method: 'GET' }).handler(async () => {
   // Use validated session for initial page load
@@ -109,64 +109,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <div className="p-2 flex gap-2 text-lg border-b">
-          <Link
-            to="/"
-            activeProps={{
-              className: 'font-bold',
-            }}
-            activeOptions={{ exact: true }}
-          >
-            Home
-          </Link>
-          
-          <Link
-            to="/products"
-            activeProps={{
-              className: 'font-bold',
-            }}
-          >
-            Products
-          </Link>
-          
-          <Link
-            to="/orders"
-            activeProps={{
-              className: 'font-bold',
-            }}
-          >
-            Orders
-          </Link>
-          
-          <div className="ml-auto flex items-center gap-4">
-            {/* Cart Icon - shows for all users */}
-            <CartIcon />
-            
-            {user ? (
-              <>
-                <span className="text-sm text-muted-foreground">{user.email}</span>
-                <Link 
-                  to="/profile"
-                  activeProps={{ className: 'font-bold' }}
-                  className="text-sm hover:text-primary transition-colors"
-                >
-                  Profile
-                </Link>
-                <LogoutButton />
-              </>
-            ) : (
-              <Link 
-                to="/login"
-                className="text-sm hover:text-primary transition-colors"
-              >
-                Login
-              </Link>
-            )}
-          </div>
-        </div>
+        <Navbar user={user} />
         <hr />
         {children}
         {/* <AuthDebugger /> */}
+        <Toaster />
         <TanStackRouterDevtools position="bottom-right" />
         <ReactQueryDevtools buttonPosition="bottom-left" />
         <Scripts />

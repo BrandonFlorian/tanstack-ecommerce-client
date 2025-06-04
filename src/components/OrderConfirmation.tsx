@@ -4,13 +4,19 @@ import { Button } from "./ui/button"
 import { Card } from "./ui/card"
 import { OrderItemCard } from "./OrderItemCard"
 import { Skeleton } from "./ui/skeleton"
-import { fetchOrderByPaymentIntent } from "@/utils/paymentApi"
-import { useQuery } from "@tanstack/react-query"
+import { fetchOrderByPaymentIntent } from "@/utils/orderApi"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSearch } from "@tanstack/react-router"
+import { useUserId } from "@/stores/sessionStore"
+import { useEffect } from "react"
 
 export function OrderConfirmation() {
-    const search = useSearch({ from: '__root__' })
-    const paymentIntentId = (search as any)?.payment_intent
+  const queryClient = useQueryClient()
+  const userId = useUserId()  
+  const search = useSearch({ from: '__root__' })
+  const paymentIntentId = (search as any)?.payment_intent
+
+
     
     const { data: orderData, isLoading, error } = useQuery({
       queryKey: ['order-confirmation', paymentIntentId],
@@ -21,6 +27,19 @@ export function OrderConfirmation() {
       staleTime: 1000 * 60 * 5, // Cache for 5 minutes
       refetchOnWindowFocus: false, 
     })
+
+    useEffect(() => {
+      if (orderData && userId) {
+        // Clear the cart cache to update the icon badge
+        queryClient.invalidateQueries({ queryKey: ['cart', userId] })
+        // Also set empty cart data to prevent flash
+        queryClient.setQueryData(['cart', userId], {
+          cart: null,
+          items: [],
+          summary: { subtotal: 0, totalItems: 0 }
+        })
+      }
+    }, [orderData, userId, queryClient])
 
     console.log("orderData", orderData)
     
