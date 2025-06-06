@@ -20,6 +20,9 @@ import { useInitializeSession } from '@/stores/sessionStore'
 import { useCartAfterLogin } from '@/hooks/useCart'
 import { Navbar } from '@/components/Navbar'
 import { Toaster } from '@/components/ui/sonner'
+import { ThemeProvider } from '@/components/providers/theme-provider'
+import { getServerTheme, generateThemeStyles } from '@/lib/themes/server'
+import { useThemeStore } from '@/stores/themeStore'
 
 export const fetchUser = createServerFn({ method: 'GET' }).handler(async () => {
   // Use validated session for initial page load
@@ -76,12 +79,17 @@ export const Route = createRootRouteWithContext<{
     ],
   }),
   beforeLoad: async () => {
-    const user = await fetchUser()
-    return { user }
+    const [user, serverTheme] = await Promise.all([
+      fetchUser(),
+      getServerTheme()
+    ])
+    
+    return { user, serverTheme }
   },
   errorComponent: (props) => {
+    const { serverTheme } = Route.useRouteContext()
     return (
-      <RootDocument>
+      <RootDocument serverTheme={serverTheme}>
         <DefaultCatchBoundary {...props} />
       </RootDocument>
     )
@@ -91,31 +99,52 @@ export const Route = createRootRouteWithContext<{
 })
 
 function RootComponent() {
+  const { serverTheme } = Route.useRouteContext()
+  
   return (
-    <RootDocument>
-        <Outlet /> 
+    <RootDocument serverTheme={serverTheme}>
+      <Outlet /> 
     </RootDocument>
   )
 }
 
-function RootDocument({ children }: { children: React.ReactNode }) {
-  const { user } = Route.useRouteContext()
+function RootDocument({ 
+  children, 
+  serverTheme 
+}: { 
+  children: React.ReactNode
+  serverTheme?: any
+}) {
+  const { user, serverTheme: contextTheme } = Route.useRouteContext()
+  const theme = serverTheme || contextTheme
+  const { currentTheme, isHydrated } = useThemeStore()
+  
+  // Use client theme after hydration
+  const activeTheme = isHydrated ? currentTheme : theme
+  
   useInitializeSession()
   useCartAfterLogin()
 
   return (
-     <html>
+    <html>
       <head>
         <HeadContent />
+        {/* Apply theme styles only once */}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `:root { ${generateThemeStyles(activeTheme)} }`
+          }}
+        />
       </head>
       <body>
-        <Navbar user={user} />
-        <hr />
-        {children}
-        {/* <AuthDebugger /> */}
-        <Toaster />
-        <TanStackRouterDevtools position="bottom-right" />
-        <ReactQueryDevtools buttonPosition="bottom-left" />
+        <ThemeProvider serverTheme={theme}>
+          <Navbar user={user} />
+          <hr />
+          {children}
+          <Toaster />
+          <TanStackRouterDevtools position="bottom-right" />
+          <ReactQueryDevtools buttonPosition="bottom-left" />
+        </ThemeProvider>
         <Scripts />
       </body>
     </html>

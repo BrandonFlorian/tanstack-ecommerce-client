@@ -3,6 +3,15 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Pixel Font Face */
+@font-face {
+  font-family: 'PixelFont';
+  src: url('/fonts/PressStart2P-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   html {
     color-scheme: light dark;
@@ -17,8 +26,35 @@
     @apply text-gray-900 bg-gray-50 dark:bg-gray-950 dark:text-gray-200;
   }
 
+  /* Disable font smoothing for pixel themes */
+  .font-pixel,
+  .font-pixel * {
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: unset;
+    font-smooth: never;
+    text-rendering: pixelated;
+  }
+
   .using-mouse * {
     outline: none !important;
+  }
+}
+
+@layer utilities {
+  /* Pixel font utility */
+  .font-pixel {
+    font-family: 'PixelFont', monospace;
+    font-size: inherit;
+    line-height: 1.2;
+    letter-spacing: 0;
+  }
+  
+  /* Ensure pixel-perfect rendering */
+  .pixel-perfect {
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-crisp-edges;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
   }
 }
 
